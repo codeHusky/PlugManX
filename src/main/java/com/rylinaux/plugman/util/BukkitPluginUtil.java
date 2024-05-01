@@ -443,7 +443,7 @@ public class BukkitPluginUtil implements PluginUtil {
     @Override
     public Map<String, Command> getKnownCommands() {
         if (this.commandMapField == null) try {
-            this.commandMapField = Class.forName("org.bukkit.craftbukkit." + this.getNmsVersion() + ".CraftServer").getDeclaredField("commandMap");
+            this.commandMapField = Class.forName(BukkitCommandWrap.cbPrefix("CraftServer")).getDeclaredField("commandMap");
             this.commandMapField.setAccessible(true);
         } catch (NoSuchFieldException | ClassNotFoundException e) {
             e.printStackTrace();
