@@ -63,31 +63,20 @@ public class BukkitCommandWrap {
     public void wrap(Command command, String alias) {
         if (this.nmsVersion == null) return;
 
-        // Get the MinecraftServer class
         if (!resolveMcServerClass());
 
-        // getServer method (nms server)
         if (!resolveGetServerMethod()) return;
-
-        // Get nms server instance
         Object minecraftServer = getServerInstance();
 
-        // Get vanillaCommandDispatcher field
         if (!resolveVanillaCommandDispatcherField()) return;
-
-        // Get the vanilla command dispatcher instance
         Object commandDispatcher = getCommandDispatcher(minecraftServer);
         if (commandDispatcher == null) return;
 
-        // Get the b field
         if (!resolveBField()) return;
 
-        // Get the a method
         if (!resolveAMethod(commandDispatcher)) return;
 
-        // Get the BukkitCommandWrapper constructor
         if (!resolveBukkitCmdWrapperConstructor()) return;
-
         Object commandWrapper = getCommandWrapper(command);
         if (commandWrapper == null) return;
 
