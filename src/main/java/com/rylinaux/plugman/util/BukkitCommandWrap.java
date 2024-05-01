@@ -152,33 +152,30 @@ public class BukkitCommandWrap {
     }
 
     private @Nullable CommandDispatcher getDispatcher(Object commandDispatcher) {
-        CommandDispatcher b = null;
         try {
-            b = (CommandDispatcher) this.bField.get(commandDispatcher);
+            return (CommandDispatcher) this.bField.get(commandDispatcher);
         } catch (IllegalAccessException e) {
             e.printStackTrace();
+            return null;
         }
-        return b;
     }
 
     private @Nullable Object getCommandDispatcher(Object server) {
-        Object commandDispatcher = null;
         try {
-            commandDispatcher = this.vanillaCommandDispatcherField.get(server);
+            return this.vanillaCommandDispatcherField.get(server);
         } catch (IllegalAccessException e) {
             e.printStackTrace();
+            return null;
         }
-        return commandDispatcher;
     }
 
     private Object getServerInstance() {
-        Object server = null;
         try {
-            server = this.getServerMethod.invoke(this.minecraftServerClass);
+            return this.getServerMethod.invoke(this.minecraftServerClass);
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
+            return null;
         }
-        return server;
     }
 
     private boolean resolveMcServerClass() {
@@ -259,25 +256,21 @@ public class BukkitCommandWrap {
     }
 
     private Object getAInstance(Object commandDispatcher) {
-        Object a = null;
         try {
-            a = this.aMethod.invoke(commandDispatcher);
+            return this.aMethod.invoke(commandDispatcher);
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
+            return null;
         }
-        return a;
     }
 
     private @Nullable Object getCommandWrapper(Command command) {
-        Object commandWrapper;
-
         try {
-            commandWrapper = this.bukkitcommandWrapperConstructor.newInstance(Bukkit.getServer(), command);
+            return this.bukkitcommandWrapperConstructor.newInstance(Bukkit.getServer(), command);
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
             return null;
         }
-        return commandWrapper;
     }
 
     private boolean resolveBukkitCmdWrapperConstructor() {
