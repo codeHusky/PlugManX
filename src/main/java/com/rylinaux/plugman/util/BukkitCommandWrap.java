@@ -126,7 +126,7 @@ public class BukkitCommandWrap {
         CommandDispatcher b = getDispatcher(commandDispatcher);
         if (b == null) return;
 
-        if (resolveRemoveCommandMethod()) return;
+        if (!resolveRemoveCommandMethod()) return;
 
         try {
             this.removeCommandMethod.invoke(b.getRoot(), command);
@@ -142,11 +142,12 @@ public class BukkitCommandWrap {
             } catch (NoSuchMethodException | NoSuchMethodError ex) {
                 this.removeCommandMethod = CommandNode.class.getDeclaredMethod("removeCommand", String.class);
             }
+            return true;
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
-            return true;
+            return false;
         }
-        return false;
+        return true;
     }
 
     private @Nullable CommandDispatcher getDispatcher(Object commandDispatcher) {
@@ -180,6 +181,7 @@ public class BukkitCommandWrap {
         if (this.minecraftServerClass == null) {
             try {
                 this.minecraftServerClass = Class.forName(nmsPrefix("MinecraftServer"));
+                return true;
             } catch (ClassNotFoundException ex) {
                 ex.printStackTrace();
                 return false;
@@ -193,6 +195,7 @@ public class BukkitCommandWrap {
             try {
                 this.getServerMethod = this.minecraftServerClass.getMethod("getServer");
                 this.getServerMethod.setAccessible(true);
+                return true;
             } catch (NoSuchMethodException e) {
                 e.printStackTrace();
                 return false;
@@ -206,6 +209,7 @@ public class BukkitCommandWrap {
             try {
                 this.vanillaCommandDispatcherField = this.minecraftServerClass.getDeclaredField("vanillaCommandDispatcher");
                 this.vanillaCommandDispatcherField.setAccessible(true);
+                return true;
             } catch (NoSuchFieldException e) {
                 e.printStackTrace();
                 return false;
@@ -219,22 +223,22 @@ public class BukkitCommandWrap {
             try {
                 this.bField = Class.forName(nmsPrefix("CommandDispatcher")).getDeclaredField("b");
                 this.bField.setAccessible(true);
+                return true;
             } catch (NoSuchFieldException | ClassNotFoundException e) {
-                if (this.bField == null) {
-                    try {
-                        Class<?> clazz = Class.forName("net.minecraft.commands.CommandDispatcher");
-                        Field gField = clazz.getDeclaredField("g");
-                        if (gField.getType() == com.mojang.brigadier.CommandDispatcher.class) {
-                            this.bField = gField;
-                        } else {
-                            this.bField = clazz.getDeclaredField("h");
-                        }
-                        this.bField.setAccessible(true);
-                    } catch (NoSuchFieldException | ClassNotFoundException ex) {
-                        ex.addSuppressed(e);
-                        e.printStackTrace();
-                        return false;
+                try {
+                    Class<?> clazz = Class.forName("net.minecraft.commands.CommandDispatcher");
+                    Field gField = clazz.getDeclaredField("g");
+                    if (gField.getType() == com.mojang.brigadier.CommandDispatcher.class) {
+                        this.bField = gField;
+                    } else {
+                        this.bField = clazz.getDeclaredField("h");
                     }
+                    this.bField.setAccessible(true);
+                    return true;
+                } catch (NoSuchFieldException | ClassNotFoundException ex) {
+                    ex.addSuppressed(e);
+                    e.printStackTrace();
+                    return false;
                 }
             }
         }
@@ -246,6 +250,7 @@ public class BukkitCommandWrap {
             this.registerMethod = Class.forName(cbPrefix("command.BukkitCommandWrapper"))
                     .getMethod("register", CommandDispatcher.class, String.class);
             this.registerMethod.setAccessible(true);
+            return true;
         } catch (NoSuchMethodException | ClassNotFoundException e) {
             e.printStackTrace();
             return false;
@@ -276,6 +281,7 @@ public class BukkitCommandWrap {
             try {
                 this.bukkitcommandWrapperConstructor = Class.forName(cbPrefix("command.BukkitCommandWrapper")).getDeclaredConstructor(Class.forName("org.bukkit.craftbukkit." + this.nmsVersion + ".CraftServer"), Command.class);
                 this.bukkitcommandWrapperConstructor.setAccessible(true);
+                return true;
             } catch (NoSuchMethodException | ClassNotFoundException e) {
                 e.printStackTrace();
                 return false;
@@ -288,6 +294,7 @@ public class BukkitCommandWrap {
         if (this.aMethod == null) try {
             this.aMethod = commandDispatcher.getClass().getDeclaredMethod("a");
             this.aMethod.setAccessible(true);
+            return true;
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
             return false;
