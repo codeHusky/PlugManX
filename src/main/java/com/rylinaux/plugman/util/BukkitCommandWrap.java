@@ -15,7 +15,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 public class BukkitCommandWrap {
-    private final boolean craftBukkitVersioning;
     private final boolean nmsVersioning;
     private String nmsVersion;
 
@@ -34,8 +33,7 @@ public class BukkitCommandWrap {
         String prefix = cbPrefix();
         String[] packageParts = prefix.split("\\.");
         String versionPart = packageParts[packageParts.length - 1];
-        this.craftBukkitVersioning = versionPart.startsWith("v1_");
-        if (this.craftBukkitVersioning) {
+        if (versionPart.startsWith("v1_")) {
             this.nmsVersion = versionPart;
         }
 
