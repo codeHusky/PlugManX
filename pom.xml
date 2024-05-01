@@ -9,9 +9,9 @@
     <version>2.3.8</version>
     <packaging>jar</packaging>
 
-    <name>PlugMan</name>
+    <name>PlugManX</name>
     <description>Plugin manager for Bukkit servers.</description>
-    <url>http://dev.bukkit.org/bukkit-plugins/plugman/</url>
+    <url>https://www.spigotmc.org/resources/plugmanx.88135/</url>
 
     <inceptionYear>2010</inceptionYear>
 
@@ -35,7 +35,7 @@
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/rylinaux/PlugMan/issues</url>
+        <url>https://github.com/TheBlackEntity/PlugManX/issues</url>
     </issueManagement>
 
     <properties>
