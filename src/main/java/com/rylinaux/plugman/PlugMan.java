@@ -29,6 +29,10 @@ package com.rylinaux.plugman;
 import com.google.common.hash.Hashing;
 import com.google.common.io.Files;
 import com.rylinaux.plugman.messaging.MessageFormatter;
+import com.rylinaux.plugman.pluginmanager.BukkitPluginManager;
+import com.rylinaux.plugman.pluginmanager.ModernPaperPluginManager;
+import com.rylinaux.plugman.pluginmanager.PaperPluginManager;
+import com.rylinaux.plugman.pluginmanager.PluginManager;
 import com.rylinaux.plugman.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -84,9 +88,8 @@ public class PlugMan extends JavaPlugin {
      * Stores all file names + plugin names for auto unload
      */
     private final HashMap<String, String> filePluginMap = new HashMap<>();
-    private PluginUtil pluginUtil;
+    private PluginManager pluginManager;
     private boolean notifyOnBrokenCommandRemoval;
-    private boolean disableDownloadCommand;
     private Field lookupNamesField = null;
     /**
      * The command manager which adds all command we want so 1.13+ players can instantly tab-complete them
@@ -155,8 +158,8 @@ public class PlugMan extends JavaPlugin {
         return PlugMan.instance;
     }
 
-    public PluginUtil getPluginUtil() {
-        return this.pluginUtil;
+    public PluginManager getPluginUtil() {
+        return this.pluginManager;
     }
 
     /**
@@ -164,13 +167,6 @@ public class PlugMan extends JavaPlugin {
      */
     public boolean isNotifyOnBrokenCommandRemoval() {
         return this.notifyOnBrokenCommandRemoval;
-    }
-
-    /**
-     * @return = If PlugManX should disable the download command
-     */
-    public boolean isDisableDownloadCommand() {
-        return disableDownloadCommand;
     }
 
     /**
@@ -186,7 +182,7 @@ public class PlugMan extends JavaPlugin {
         }
 
         if (this.lookupNamesField == null) {
-            Bukkit.getLogger().severe("Failed to add PlugMan to plugin list!\nNot a bukkit environment?");
+            this.getLogger().severe("Failed to add PlugMan to plugin list!\nNot a bukkit environment?");
             return;
         }
 
@@ -200,7 +196,7 @@ public class PlugMan extends JavaPlugin {
         }
 
         if (lookupNames == null) {
-            Bukkit.getLogger().severe("Failed to add PlugMan to plugin list!\nNot a bukkit environment?");
+            this.getLogger().severe("Failed to add PlugMan to plugin list!\nNot a bukkit environment?");
             return;
         }
 
@@ -216,38 +212,42 @@ public class PlugMan extends JavaPlugin {
 
     @Override
     public void onEnable() {
-
         try {
             Class.forName("io.papermc.paper.plugin.manager.PaperPluginManagerImpl");
+            String[] version = Bukkit.getBukkitVersion().split("-")[0].split("\\.");
 
-            this.pluginUtil = new PaperPluginUtil(new BukkitPluginUtil());
+            int paperVersion = Integer.parseInt(version[1]) * 100 + Integer.parseInt(version[2]);
+
+            this.pluginManager = paperVersion >= 2005?
+                                 new ModernPaperPluginManager(new BukkitPluginManager()) :
+                                 new PaperPluginManager(new BukkitPluginManager());
         } catch (Throwable ignored) {
-            this.pluginUtil = new BukkitPluginUtil();
+            this.pluginManager = new BukkitPluginManager();
         }
 
-        if (this.pluginUtil instanceof PaperPluginUtil) {
-            Bukkit.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            Bukkit.getLogger().warning("It seems like you're running on paper.");
-            Bukkit.getLogger().warning("PlugManX cannot interact with paper-plugins, yet.");
-            Bukkit.getLogger().warning("Also, if you encounter any issues, please join my discord: https://discord.gg/GxEFhVY6ff");
-            Bukkit.getLogger().warning("Or create an issue on GitHub: https://github.com/TheBlackEntity/PlugMan");
-            Bukkit.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        if (this.pluginManager instanceof PaperPluginManager) {
+            this.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            this.getLogger().warning("It seems like you're running on paper.");
+            this.getLogger().warning("PlugManX cannot interact with paper-plugins, yet.");
+            this.getLogger().warning("Also, if you encounter any issues, please join my discord: https://discord.gg/GxEFhVY6ff");
+            this.getLogger().warning("Or create an issue on GitHub: https://github.com/TheBlackEntity/PlugMan");
+            this.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
 
         PlugMan.instance = this;
 
-        File messagesFile = new File(getDataFolder(), "messages.yml");
+        File messagesFile = new File(this.getDataFolder(), "messages.yml");
         if (!messagesFile.exists())
-            saveResource("messages.yml", true);
+            this.saveResource("messages.yml", true);
 
-        if (!new File(getDataFolder(), "messages_jp.yml").exists())
-            saveResource("messages_jp.yml", true);
+        if (!new File(this.getDataFolder(), "messages_jp.yml").exists())
+            this.saveResource("messages_jp.yml", true);
 
-        if (!new File(getDataFolder(), "messages_de.yml").exists())
-            saveResource("messages_de.yml", true);
+        if (!new File(this.getDataFolder(), "messages_de.yml").exists())
+            this.saveResource("messages_de.yml", true);
 
-        if (!new File(getDataFolder(), "messages_es.yml").exists())
-            saveResource("messages_es.yml", true);
+        if (!new File(this.getDataFolder(), "messages_es.yml").exists())
+            this.saveResource("messages_es.yml", true);
 
         FileConfiguration messageConfiguration = YamlConfiguration.loadConfiguration(messagesFile);
 
@@ -269,7 +269,7 @@ public class PlugMan extends JavaPlugin {
             Class.forName("com.mojang.brigadier.CommandDispatcher");
             this.bukkitCommandWrap = new BukkitCommandWrap();
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            this.bukkitCommandWrap = new BukkitCommandWrap_Useless();
+            this.bukkitCommandWrap = new BukkitCommandWrapUseless();
         }
 
         for (File file : new File("plugins").listFiles()) {
@@ -320,13 +320,11 @@ public class PlugMan extends JavaPlugin {
 
         this.notifyOnBrokenCommandRemoval = this.getConfig().getBoolean("notify-on-broken-command-removal", true);
 
-        this.disableDownloadCommand = this.getConfig().getBoolean("disable-download-command", false);
-
         boolean alerted = false;
 
         if (this.getConfig().getBoolean("auto-load.enabled", false)) {
-            Bukkit.getLogger().warning("!!! The auto (re/un)load feature can break plugins, use with caution !!!");
-            Bukkit.getLogger().warning("If anything breaks, a restart will probably fix it!");
+            this.getLogger().warning("!!! The auto (re/un)load feature can break plugins, use with caution !!!");
+            this.getLogger().warning("If anything breaks, a restart will probably fix it!");
             alerted = true;
             Bukkit.getScheduler().scheduleAsyncRepeatingTask(this, () -> {
                 if (!new File("plugins").isDirectory()) return;
@@ -348,8 +346,8 @@ public class PlugMan extends JavaPlugin {
 
         if (this.getConfig().getBoolean("auto-unload.enabled", false)) {
             if (!alerted) {
-                Bukkit.getLogger().warning("!!! The auto (re/un)load feature can break plugins, use with caution !!!");
-                Bukkit.getLogger().warning("If anything breaks, a restart will probably fix it!");
+                this.getLogger().warning("!!! The auto (re/un)load feature can break plugins, use with caution !!!");
+                this.getLogger().warning("If anything breaks, a restart will probably fix it!");
                 alerted = true;
             }
             Bukkit.getScheduler().scheduleAsyncRepeatingTask(this, () -> {
@@ -373,8 +371,8 @@ public class PlugMan extends JavaPlugin {
 
         if (this.getConfig().getBoolean("auto-reload.enabled", false)) {
             if (!alerted) {
-                Bukkit.getLogger().warning("!!! The auto (re/un)load feature can break plugins, use with caution !!!");
-                Bukkit.getLogger().warning("If anything breaks, a restart will probably fix it!");
+                this.getLogger().warning("!!! The auto (re/un)load feature can break plugins, use with caution !!!");
+                this.getLogger().warning("If anything breaks, a restart will probably fix it!");
                 alerted = true;
             }
             Bukkit.getScheduler().scheduleAsyncRepeatingTask(this, () -> {
@@ -426,32 +424,31 @@ public class PlugMan extends JavaPlugin {
         this.saveDefaultConfig();
 
         if (!this.getConfig().isSet("auto-load.enabled") || !this.getConfig().isSet("auto-unload.enabled") || !this.getConfig().isSet("auto-reload.enabled") || !this.getConfig().isSet("ignored-plugins") || !this.getConfig().isSet("notify-on-broken-command-removal")) {
-            Bukkit.getLogger().severe("Invalid PlugMan config detected! Creating new one...");
+            this.getLogger().severe("Invalid PlugMan config detected! Creating new one...");
             new File("plugins" + File.separator + "PlugManX", "config.yml").renameTo(new File("plugins" + File.separator + "PlugManX", "config.yml.old-" + System.currentTimeMillis()));
             this.saveDefaultConfig();
-            Bukkit.getLogger().info("New config created!");
+            this.getLogger().info("New config created!");
         }
 
         int configVersion = 0;
 
-        if (getConfig().isSet("version")) {
-            configVersion = getConfig().getInt("version");
-        }
+        if (this.getConfig().isSet("version"))
+            configVersion = this.getConfig().getInt("version");
 
-        if (configVersion < 1) {
-            getConfig().set("version", 1);
-            getConfig().set("disable-download-command", true);
+        if (configVersion <= 1) {
+            this.getConfig().set("version", 2);
 
-            saveConfig();
+            this.getConfig().set("disable-download-command",  null);
 
-            reloadConfig();
+            this.saveConfig();
 
+            this.reloadConfig();
 
-            Bukkit.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            Bukkit.getLogger().warning("PlugManX disabled the download command for you!");
-            Bukkit.getLogger().warning("If you don't use it, please keep it disabled, as it can expose your server to vulnerabilities!");
-            Bukkit.getLogger().warning("This message will only display once!");
-            Bukkit.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            this.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+            this.getLogger().warning("As of 2.4.0, the download command has been removed!");
+            this.getLogger().warning("If you weren't using it, you can just ignore this message.");
+            this.getLogger().warning("This message will only display once!");
+            this.getLogger().warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         }
 
         this.ignoredPlugins = this.getConfig().getStringList("ignored-plugins");

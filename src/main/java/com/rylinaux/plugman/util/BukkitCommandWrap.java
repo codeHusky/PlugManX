@@ -30,12 +30,11 @@ public class BukkitCommandWrap {
     private Constructor bukkitcommandWrapperConstructor;
 
     public BukkitCommandWrap() {
-        String prefix = cbPrefix();
+        String prefix = getCraftBukkitPrefix();
         String[] packageParts = prefix.split("\\.");
         String versionPart = packageParts[packageParts.length - 1];
-        if (versionPart.startsWith("v1_")) {
+        if (versionPart.startsWith("v1_"))
             this.nmsVersion = versionPart;
-        }
 
         boolean nmsVers = true;
         try {
@@ -45,43 +44,43 @@ public class BukkitCommandWrap {
         this.nmsVersioning = nmsVers;
     }
 
-    private static @NotNull String cbPrefix() {
+    private static @NotNull String getCraftBukkitPrefix() {
         return Bukkit.getServer().getClass().getPackage().getName();
     }
 
-    public static @NotNull String cbPrefix(String cbClassName) {
-        return cbPrefix() + "." + cbClassName;
+    public static @NotNull String getCraftBukkitPrefix(String cbClassName) {
+        return getCraftBukkitPrefix() + "." + cbClassName;
     }
 
-    private @NotNull String nmsPrefix(String nmsClassName) {
-        if (nmsVersioning) return "net.minecraft.server." + this.nmsVersion + "." + nmsClassName;
+    private @NotNull String getNetMinecraftServerPrefix(String nmsClassName) {
+        if (this.nmsVersioning) return "net.minecraft.server." + this.nmsVersion + "." + nmsClassName;
         return "net.minecraft.server." + nmsClassName;
     }
 
     public void wrap(Command command, String alias) {
         if (this.nmsVersion == null) return;
 
-        if (!resolveMcServerClass());
+        if (!this.resolveMinecraftServerClass()) return;
 
-        if (!resolveGetServerMethod()) return;
-        Object minecraftServer = getServerInstance();
+        if (!this.resolveGetServerMethod()) return;
+        Object minecraftServer = this.getServerInstance();
 
-        if (!resolveVanillaCommandDispatcherField()) return;
-        Object commandDispatcher = getCommandDispatcher(minecraftServer);
+        if (!this.resolveVanillaCommandDispatcherField()) return;
+        Object commandDispatcher = this.getCommandDispatcher(minecraftServer);
         if (commandDispatcher == null) return;
 
-        if (!resolveBField()) return;
+        if (!this.resolveBField()) return;
 
-        if (!resolveAMethod(commandDispatcher)) return;
+        if (!this.resolveAMethod(commandDispatcher)) return;
 
-        if (!resolveBukkitCmdWrapperConstructor()) return;
-        Object commandWrapper = getCommandWrapper(command);
+        if (!this.resolveBukkitCmdWrapperConstructor()) return;
+        Object commandWrapper = this.getCommandWrapper(command);
         if (commandWrapper == null) return;
 
-        Object aInstance = getAInstance(commandDispatcher);
+        Object aInstance = this.getAInstance(commandDispatcher);
         if (aInstance == null) return;
 
-        if (!resolveRegisterCmdMethod()) return;
+        if (!this.resolveRegisterCommandMethod()) return;
 
         try {
             this.registerMethod.invoke(commandWrapper, aInstance, alias);
@@ -90,43 +89,50 @@ public class BukkitCommandWrap {
         }
     }
 
-    public void sync() {
-        if (this.syncCommandsMethod == null) try {
-            this.syncCommandsMethod = Class.forName(cbPrefix("CraftServer")).getDeclaredMethod("syncCommands");
-            this.syncCommandsMethod.setAccessible(true);
+    private boolean resolveSyncCommandsMethod() {
+        if (this.syncCommandsMethod != null) return true;
 
-            if (Bukkit.getOnlinePlayers().size() >= 1)
-                for (Player player : Bukkit.getOnlinePlayers())
-                    player.updateCommands();
+        try {
+            this.syncCommandsMethod = Class.forName(getCraftBukkitPrefix("CraftServer")).getDeclaredMethod("syncCommands");
+            this.syncCommandsMethod.setAccessible(true);
+            return true;
         } catch (NoSuchMethodException | ClassNotFoundException e) {
             e.printStackTrace();
-            return;
+            return false;
         }
+    }
+
+    public void sync() {
+        if (!this.resolveSyncCommandsMethod()) return;
 
         try {
             this.syncCommandsMethod.invoke(Bukkit.getServer());
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
+
+        if (Bukkit.getOnlinePlayers().isEmpty()) return;
+
+        Bukkit.getOnlinePlayers().forEach(Player::updateCommands);
     }
 
     public void unwrap(String command) {
         if (this.nmsVersion == null) return;
 
-        if (!resolveMcServerClass()) return;
+        if (!this.resolveMinecraftServerClass()) return;
 
-        if (!resolveGetServerMethod()) return;
-        Object server = getServerInstance();
+        if (!this.resolveGetServerMethod()) return;
+        Object server = this.getServerInstance();
 
-        if (!resolveVanillaCommandDispatcherField()) return;
-        Object commandDispatcher = getCommandDispatcher(server);
+        if (!this.resolveVanillaCommandDispatcherField()) return;
+        Object commandDispatcher = this.getCommandDispatcher(server);
 
-        if (!resolveBField()) return;
+        if (!this.resolveBField()) return;
 
-        CommandDispatcher b = getDispatcher(commandDispatcher);
+        CommandDispatcher b = this.getDispatcher(commandDispatcher);
         if (b == null) return;
 
-        if (!resolveRemoveCommandMethod()) return;
+        if (!this.resolveRemoveCommandMethod()) return;
 
         try {
             this.removeCommandMethod.invoke(b.getRoot(), command);
@@ -177,77 +183,69 @@ public class BukkitCommandWrap {
         }
     }
 
-    private boolean resolveMcServerClass() {
-        if (this.minecraftServerClass == null) {
-            try {
-                this.minecraftServerClass = Class.forName(nmsPrefix("MinecraftServer"));
-                return true;
-            } catch (ClassNotFoundException ex) {
-                ex.printStackTrace();
-                return false;
-            }
+    private boolean resolveMinecraftServerClass() {
+        if (this.minecraftServerClass != null) return true;
+        try {
+            this.minecraftServerClass = Class.forName(this.getNetMinecraftServerPrefix("MinecraftServer"));
+            return true;
+        } catch (ClassNotFoundException ex) {
+            ex.printStackTrace();
+            return false;
         }
-        return true;
     }
 
     private boolean resolveGetServerMethod() {
-        if (this.getServerMethod == null) {
-            try {
-                this.getServerMethod = this.minecraftServerClass.getMethod("getServer");
-                this.getServerMethod.setAccessible(true);
-                return true;
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
-                return false;
-            }
+        if (this.getServerMethod != null) return true;
+        try {
+            this.getServerMethod = this.minecraftServerClass.getMethod("getServer");
+            this.getServerMethod.setAccessible(true);
+            return true;
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+            return false;
         }
-        return true;
     }
 
     private boolean resolveVanillaCommandDispatcherField() {
-        if (this.vanillaCommandDispatcherField == null) {
+        if (this.vanillaCommandDispatcherField != null) return true;
+        try {
+            this.vanillaCommandDispatcherField = this.minecraftServerClass.getDeclaredField("vanillaCommandDispatcher");
+            this.vanillaCommandDispatcherField.setAccessible(true);
+            return true;
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean resolveBField() {
+        if (this.bField != null) return true;
+        try {
+            this.bField = Class.forName(this.getNetMinecraftServerPrefix("CommandDispatcher")).getDeclaredField("b");
+            this.bField.setAccessible(true);
+            return true;
+        } catch (NoSuchFieldException | ClassNotFoundException e) {
             try {
-                this.vanillaCommandDispatcherField = this.minecraftServerClass.getDeclaredField("vanillaCommandDispatcher");
-                this.vanillaCommandDispatcherField.setAccessible(true);
+                Class<?> clazz = Class.forName("net.minecraft.commands.CommandDispatcher");
+                Field gField = clazz.getDeclaredField("g");
+                if (gField.getType() == com.mojang.brigadier.CommandDispatcher.class)
+                    this.bField = gField;
+                else
+                    this.bField = clazz.getDeclaredField("h");
+                this.bField.setAccessible(true);
                 return true;
-            } catch (NoSuchFieldException e) {
+            } catch (NoSuchFieldException | ClassNotFoundException ex) {
+                ex.addSuppressed(e);
                 e.printStackTrace();
                 return false;
             }
         }
-        return true;
     }
 
-    private boolean resolveBField() {
-        if (this.bField == null) {
-            try {
-                this.bField = Class.forName(nmsPrefix("CommandDispatcher")).getDeclaredField("b");
-                this.bField.setAccessible(true);
-                return true;
-            } catch (NoSuchFieldException | ClassNotFoundException e) {
-                try {
-                    Class<?> clazz = Class.forName("net.minecraft.commands.CommandDispatcher");
-                    Field gField = clazz.getDeclaredField("g");
-                    if (gField.getType() == com.mojang.brigadier.CommandDispatcher.class) {
-                        this.bField = gField;
-                    } else {
-                        this.bField = clazz.getDeclaredField("h");
-                    }
-                    this.bField.setAccessible(true);
-                    return true;
-                } catch (NoSuchFieldException | ClassNotFoundException ex) {
-                    ex.addSuppressed(e);
-                    e.printStackTrace();
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean resolveRegisterCmdMethod() {
-        if (this.registerMethod == null) try {
-            this.registerMethod = Class.forName(cbPrefix("command.BukkitCommandWrapper"))
+    private boolean resolveRegisterCommandMethod() {
+        if (this.registerMethod != null) return true;
+        try {
+            this.registerMethod = Class.forName(getCraftBukkitPrefix("command.BukkitCommandWrapper"))
                     .getMethod("register", CommandDispatcher.class, String.class);
             this.registerMethod.setAccessible(true);
             return true;
@@ -255,7 +253,6 @@ public class BukkitCommandWrap {
             e.printStackTrace();
             return false;
         }
-        return true;
     }
 
     private Object getAInstance(Object commandDispatcher) {
@@ -277,21 +274,20 @@ public class BukkitCommandWrap {
     }
 
     private boolean resolveBukkitCmdWrapperConstructor() {
-        if (this.bukkitcommandWrapperConstructor == null) {
-            try {
-                this.bukkitcommandWrapperConstructor = Class.forName(cbPrefix("command.BukkitCommandWrapper")).getDeclaredConstructor(Class.forName("org.bukkit.craftbukkit." + this.nmsVersion + ".CraftServer"), Command.class);
-                this.bukkitcommandWrapperConstructor.setAccessible(true);
-                return true;
-            } catch (NoSuchMethodException | ClassNotFoundException e) {
-                e.printStackTrace();
-                return false;
-            }
+        if (this.bukkitcommandWrapperConstructor != null) return true;
+        try {
+            this.bukkitcommandWrapperConstructor = Class.forName(getCraftBukkitPrefix("command.BukkitCommandWrapper")).getDeclaredConstructor(Class.forName("org.bukkit.craftbukkit." + this.nmsVersion + ".CraftServer"), Command.class);
+            this.bukkitcommandWrapperConstructor.setAccessible(true);
+            return true;
+        } catch (NoSuchMethodException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return false;
         }
-        return true;
     }
 
     private boolean resolveAMethod(Object commandDispatcher) {
-        if (this.aMethod == null) try {
+        if (this.aMethod != null) return true;
+        try {
             this.aMethod = commandDispatcher.getClass().getDeclaredMethod("a");
             this.aMethod.setAccessible(true);
             return true;
@@ -299,6 +295,5 @@ public class BukkitCommandWrap {
             e.printStackTrace();
             return false;
         }
-        return true;
     }
 }
