@@ -33,14 +33,14 @@ import com.rylinaux.plugman.pluginmanager.BukkitPluginManager;
 import com.rylinaux.plugman.pluginmanager.ModernPaperPluginManager;
 import com.rylinaux.plugman.pluginmanager.PaperPluginManager;
 import com.rylinaux.plugman.pluginmanager.PluginManager;
-import com.rylinaux.plugman.util.*;
+import com.rylinaux.plugman.util.BukkitCommandWrap;
+import com.rylinaux.plugman.util.BukkitCommandWrapUseless;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.InvalidDescriptionException;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.SimplePluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.*;
@@ -58,23 +58,10 @@ import java.util.zip.ZipException;
  * @author rylinaux
  */
 public class PlugMan extends JavaPlugin {
-    private static boolean createdDummyPlugMan = false;
     /**
      * The instance of the plugin
      */
     private static PlugMan instance = null;
-
-    static {
-        try {
-            PluginDescriptionFile.class.getDeclaredField("provides");
-            if (new File("plugins", "PlugManDummy.jar").exists()) new File("plugins", "PlugManDummy.jar").delete();
-        } catch (NoSuchFieldError | NoSuchFieldException ignored) {
-            if (!new File("plugins", "PlugManDummy.jar").exists())
-                System.out.println("'Legacy' server version detected, please restart the server in order to load Dummy PlugMan, please ignore all UnknownDependencyException messages about PlugMan if you did not restart.");
-            PlugMan.saveResourceStatic("PlugManDummy.jar", true);
-            PlugMan.createdDummyPlugMan = true;
-        }
-    }
 
     /**
      * HashMap that contains all mappings from resourcemaps.yml
@@ -167,47 +154,6 @@ public class PlugMan extends JavaPlugin {
      */
     public boolean isNotifyOnBrokenCommandRemoval() {
         return this.notifyOnBrokenCommandRemoval;
-    }
-
-    /**
-     * For older server versions: Adds "PlugManX" as "PlugMan" to "lookupNames" field of "SimplePluginManager"
-     * This is needed because of plugins which depend on "PlugMan", but server has "PlugManX" installed
-     * Not needed on newer versions, because of new "provides" keyword in plugin.yml
-     */
-    private void addPluginToList() {
-        try {
-            this.lookupNamesField = SimplePluginManager.class.getDeclaredField("lookupNames");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        if (this.lookupNamesField == null) {
-            this.getLogger().severe("Failed to add PlugMan to plugin list!\nNot a bukkit environment?");
-            return;
-        }
-
-        this.lookupNamesField.setAccessible(true);
-
-        Map lookupNames = null;
-        try {
-            lookupNames = (Map) this.lookupNamesField.get(Bukkit.getPluginManager());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        if (lookupNames == null) {
-            this.getLogger().severe("Failed to add PlugMan to plugin list!\nNot a bukkit environment?");
-            return;
-        }
-
-        lookupNames.remove("PlugMan");
-        lookupNames.put("PlugMan", this);
-    }
-
-    @Override
-    public void onLoad() {
-        if (PlugMan.createdDummyPlugMan)
-            this.addPluginToList();
     }
 
     @Override
