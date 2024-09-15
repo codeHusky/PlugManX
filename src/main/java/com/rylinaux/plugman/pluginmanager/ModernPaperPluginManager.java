@@ -1,5 +1,6 @@
 package com.rylinaux.plugman.pluginmanager;
 
+import com.destroystokyo.paper.event.executor.asm.SafeClassDefiner;
 import com.rylinaux.plugman.PlugMan;
 import com.rylinaux.plugman.api.GentleUnload;
 import com.rylinaux.plugman.api.PlugManAPI;
@@ -9,11 +10,14 @@ import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.Event;
+import org.bukkit.plugin.EventExecutor;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredListener;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -39,6 +43,7 @@ public class ModernPaperPluginManager extends PaperPluginManager {
             Map<String, Command> commands;
             Map<Event, SortedSet<RegisteredListener>> listeners = null;
             Map<String, Object> lookupNames;
+            Map<Method, Class<?>> eventExecutorMap = null;
             List<Plugin> pluginList;
             boolean reloadlisteners = true;
 
@@ -84,7 +89,15 @@ public class ModernPaperPluginManager extends PaperPluginManager {
                 knownCommandsField.setAccessible(true);
                 commands = (Map<String, Command>) knownCommandsField.get(commandMap);
 
-            } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException | IllegalAccessException | InvocationTargetException e) {
+                try {
+                    Field eventExecutorMapField = EventExecutor.class.getDeclaredField("eventExecutorMap");
+                    eventExecutorMapField.setAccessible(true);
+                    eventExecutorMap = (Map<Method, Class<?>>) eventExecutorMapField.get(null);
+                } catch (Exception ignored) {
+                }
+
+            } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException | IllegalAccessException |
+                     InvocationTargetException e) {
                 e.printStackTrace();
                 return PlugMan.getInstance().getMessageFormatter().format("unload.failed", name);
             }
@@ -93,7 +106,7 @@ public class ModernPaperPluginManager extends PaperPluginManager {
                 for (SortedSet<RegisteredListener> set : listeners.values())
                     set.removeIf(value -> value.getPlugin() == plugin);
 
-            if (commandMap != null)
+            if (commandMap != null) {
                 for (Map.Entry<String, Command> entry : new HashSet<>(commands.entrySet())) {
                     if (entry.getValue() instanceof PluginCommand) {
                         PluginCommand c = (PluginCommand) entry.getValue();
@@ -106,9 +119,9 @@ public class ModernPaperPluginManager extends PaperPluginManager {
 
                     try {
                         Field pluginField = Arrays.stream(entry.getValue().getClass().getDeclaredFields())
-                                                  .filter(field -> Plugin.class.isAssignableFrom(field.getType()))
-                                                  .findFirst()
-                                                  .orElse(null);
+                                .filter(field -> Plugin.class.isAssignableFrom(field.getType()))
+                                .findFirst()
+                                .orElse(null);
                         if (pluginField != null) {
                             Plugin owningPlugin;
                             try {
@@ -131,6 +144,7 @@ public class ModernPaperPluginManager extends PaperPluginManager {
                         }
                     }
                 }
+            }
 
             // The plugin can only be removed from the lookup names and the plugin list AFTER the commands are unregistered, to avoid issues with commands created via Paper's Brigadier API
             lookupNames.remove(plugin.getName().toLowerCase());
@@ -140,6 +154,42 @@ public class ModernPaperPluginManager extends PaperPluginManager {
                 plugins.remove(plugin);
             if (names != null)
                 names.remove(name);
+            if (eventExecutorMap != null) {
+                ClassLoader loader = plugin.getClass().getClassLoader();
+                Iterator<Map.Entry<Method, Class<?>>> iterator = eventExecutorMap.entrySet().iterator();
+                while (iterator.hasNext()) {
+                    Map.Entry<Method, Class<?>> entry = iterator.next();
+                    if (entry.getKey().getDeclaringClass().getClassLoader() == loader) {
+                        synchronized (entry.getKey()) { // paper also synchronizes over the method
+                            iterator.remove();
+                        }
+                    }
+                }
+            }
+            try {
+                // Try to unload from SafeClassDefiner
+                Class<?> cls = SafeClassDefiner.class;
+                Field instanceField = cls.getDeclaredField("INSTANCE");
+                instanceField.setAccessible(true);
+                instanceField.setAccessible(true);
+                Object instance = instanceField.get(null);
+                Field loadersField = instance.getClass().getDeclaredField("loaders");
+                loadersField.setAccessible(true);
+                Map<?, ?> loaders = (Map<?, ?>) loadersField.get(instance);
+                loaders.remove(plugin.getClass().getClassLoader());
+            } catch (NoClassDefFoundError ignored) { // ignore this, if SafeClassDefiner doesn't exist
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                e.printStackTrace();
+                return PlugMan.getInstance().getMessageFormatter().format("unload.failed", name);
+            }
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    // schedule an empty BukkitRunnable to clear/reset the "head" field in CraftScheduler.
+                    // that field can keep plugin classes loaded, and scheduling an empty runnable
+                    // seems nicer and less harmful than clearing that field with reflection
+                }
+            }.runTask(PlugMan.getInstance());
         }
 
         if (!(PlugMan.getInstance().getBukkitCommandWrap() instanceof BukkitCommandWrapUseless))
