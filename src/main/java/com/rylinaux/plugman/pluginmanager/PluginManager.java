@@ -1,6 +1,8 @@
 package com.rylinaux.plugman.pluginmanager;
 
+import com.rylinaux.plugman.PlugMan;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
@@ -147,11 +149,31 @@ public interface PluginManager {
 
 
     /**
+     * Loads and enables a plugin.
+     *
+     * @param plugin plugin to load
+     * @return status message
+     */
+    default String load(Plugin plugin) {
+        return this.load(plugin.getName());
+    }
+
+    /**
      * Reload a plugin.
      *
      * @param plugin the plugin to reload
      */
-    void reload(Plugin plugin);
+    default void reload(CommandSender sender, Plugin plugin){
+        if (plugin != null) {
+            String unloadOutput = this.unload(plugin);
+            if(sender != null) sender.sendMessage(unloadOutput);
+            String loadOutput = this.load(plugin);
+            if(sender != null) {
+                sender.sendMessage(loadOutput);
+                sender.sendMessage(PlugMan.getInstance().getMessageFormatter().format("reload.reloaded", plugin.getName()));
+            }
+        }
+    }
 
     /**
      * Reload all plugins.
