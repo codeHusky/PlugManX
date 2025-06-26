@@ -5,6 +5,7 @@ import com.rylinaux.plugman.PlugMan;
 import com.rylinaux.plugman.api.GentleUnload;
 import com.rylinaux.plugman.api.PlugManAPI;
 import com.rylinaux.plugman.util.BukkitCommandWrapUseless;
+import com.tcoded.folialib.FoliaLib;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
@@ -19,6 +20,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class ModernPaperPluginManager extends PaperPluginManager {
@@ -182,14 +184,22 @@ public class ModernPaperPluginManager extends PaperPluginManager {
                 e.printStackTrace();
                 return PlugMan.getInstance().getMessageFormatter().format("unload.failed", name);
             }
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    // schedule an empty BukkitRunnable to clear/reset the "head" field in CraftScheduler.
-                    // that field can keep plugin classes loaded, and scheduling an empty runnable
-                    // seems nicer and less harmful than clearing that field with reflection
-                }
-            }.runTask(PlugMan.getInstance());
+            if (this.isFolia()) {
+                com.tcoded.folialib.FoliaLib foliaLib = new com.tcoded.folialib.FoliaLib(PlugMan.getInstance());
+                foliaLib.getImpl().runAsync(() -> {
+                    // attempt to do the same thing for folia
+                });
+            } else {
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        // schedule an empty BukkitRunnable to clear/reset the "head" field in CraftScheduler.
+                        // that field can keep plugin classes loaded, and scheduling an empty runnable
+                        // seems nicer and less harmful than clearing that field with reflection
+                    }
+                }.runTask(PlugMan.getInstance());
+            }
+
         }
 
         if (!(PlugMan.getInstance().getBukkitCommandWrap() instanceof BukkitCommandWrapUseless))
