@@ -122,8 +122,6 @@ public class ReloadCommand extends AbstractCommand {
             return;
         }
 
-        PlugMan.getInstance().getPluginUtil().reload(target);
-
-        sender.sendMessage(PlugMan.getInstance().getMessageFormatter().format("reload.reloaded", target.getName()));
+        PlugMan.getInstance().getPluginUtil().reload(sender, target);
     }
 }

@@ -34,10 +34,7 @@ import com.rylinaux.plugman.util.BukkitCommandWrapUseless;
 import com.rylinaux.plugman.util.StringUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandMap;
-import org.bukkit.command.PluginCommand;
-import org.bukkit.command.SimpleCommandMap;
+import org.bukkit.command.*;
 import org.bukkit.event.Event;
 import org.bukkit.plugin.*;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -333,16 +330,6 @@ public class BukkitPluginManager implements PluginManager {
     /**
      * Loads and enables a plugin.
      *
-     * @param plugin plugin to load
-     * @return status message
-     */
-    private String load(Plugin plugin) {
-        return this.load(plugin.getName());
-    }
-
-    /**
-     * Loads and enables a plugin.
-     *
      * @param name plugin's name
      * @return status message
      */
@@ -470,20 +457,6 @@ public class BukkitPluginManager implements PluginManager {
         }
     }
 
-
-    /**
-     * Reload a plugin.
-     *
-     * @param plugin the plugin to reload
-     */
-    @Override
-    public void reload(Plugin plugin) {
-        if (plugin != null) {
-            this.unload(plugin);
-            this.load(plugin);
-        }
-    }
-
     /**
      * Reload all plugins.
      */
@@ -491,7 +464,7 @@ public class BukkitPluginManager implements PluginManager {
     public void reloadAll() {
         for (Plugin plugin : Bukkit.getPluginManager().getPlugins())
             if (!this.isIgnored(plugin) && !this.isPaperPlugin(plugin))
-                this.reload(plugin);
+                this.reload(null, plugin);
     }
 
     /**

@@ -34,6 +34,7 @@ import com.rylinaux.plugman.util.StringUtil;
 import io.papermc.paper.plugin.configuration.PluginMeta;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.event.Event;
@@ -349,16 +350,6 @@ public class PaperPluginManager implements PluginManager {
     /**
      * Loads and enables a plugin.
      *
-     * @param plugin plugin to load
-     * @return status message
-     */
-    private String load(Plugin plugin) {
-        return this.load(plugin.getName());
-    }
-
-    /**
-     * Loads and enables a plugin.
-     *
      * @param name plugin's name
      * @return status message
      */
@@ -374,17 +365,26 @@ public class PaperPluginManager implements PluginManager {
 
         File pluginFile = new File(pluginDir, name + ".jar");
 
-        if (!pluginFile.isFile())
-            for (File f : pluginDir.listFiles())
-                if (f.getName().endsWith(".jar")) try {
-                    PluginDescriptionFile desc = this.getPluginDescription(f);
-                    if (desc.getName().equalsIgnoreCase(name)) {
-                        pluginFile = f;
-                        break;
+        if (!pluginFile.isFile()) {
+            for (File f : pluginDir.listFiles()) {
+                if (f.getName().endsWith(".jar")) {
+                    try {
+                        PluginDescriptionFile desc = this.getPluginDescription(f);
+                        if (desc.getName().equalsIgnoreCase(name)) {
+                            pluginFile = f;
+                            break;
+                        }
+                    } catch (InvalidDescriptionException e) {
+                        PlugMan.getInstance().getLogger().warning("Failed to read descriptor for " + f.getName() + " - skipping");
                     }
-                } catch (InvalidDescriptionException e) {
-                    return PlugMan.getInstance().getMessageFormatter().format("load.cannot-find");
                 }
+            }
+            if(!pluginFile.isFile()){
+                return PlugMan.getInstance().getMessageFormatter().format("load.cannot-find");
+            }
+        }
+
+        PlugMan.getInstance().getLogger().info("Attempting to load " + pluginFile.getPath());
 
         try {
             Class paper = Class.forName("io.papermc.paper.plugin.manager.PaperPluginManagerImpl");
@@ -459,26 +459,13 @@ public class PaperPluginManager implements PluginManager {
     }
 
     /**
-     * Reload a plugin.
-     *
-     * @param plugin the plugin to reload
-     */
-    @Override
-    public void reload(Plugin plugin) {
-        if (plugin != null) {
-            this.unload(plugin);
-            this.load(plugin);
-        }
-    }
-
-    /**
      * Reload all plugins.
      */
     @Override
     public void reloadAll() {
         for (Plugin plugin : Bukkit.getPluginManager().getPlugins())
             if (!this.isIgnored(plugin) && !this.isPaperPlugin(plugin))
-                this.reload(plugin);
+                this.reload(null, plugin);
     }
 
     /**
