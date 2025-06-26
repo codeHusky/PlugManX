@@ -69,16 +69,16 @@ How to include PlugMan with Maven:
    <repositories>
         <!-- PlugMan -->
         <repository>
-            <id>PlugMan</id>
-            <url>https://raw.githubusercontent.com/TheBlackEntity/PlugMan/repository/</url>
+            <id>PlugManX</id>
+            <url>https://raw.githubusercontent.com/Test-Account666/PlugManX/repository/</url>
         </repository>
     </repositories>
     
     <dependencies>
         <dependency>
             <groupId>com.rylinaux</groupId>
-            <artifactId>PlugMan</artifactId>
-            <version>2.3.3</version>
+            <artifactId>PlugManX</artifactId>
+            <version>2.4.1</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -87,11 +87,11 @@ How to include PlugMan with Gradle:
 ```groovy
 repositories {
     maven {
-        name = 'PlugMan'
-        url = 'https://raw.githubusercontent.com/TheBlackEntity/PlugMan/repository/'
+        name = 'PlugManX'
+        url = 'https://raw.githubusercontent.com/Test-Account666/PlugManX/repository/'
     }
 }
 dependencies {
-    compileOnly 'com.rylinaux:PlugMan:2.3.3'
+    compileOnly 'com.rylinaux:PlugManX:2.4.1'
 }
 ```
