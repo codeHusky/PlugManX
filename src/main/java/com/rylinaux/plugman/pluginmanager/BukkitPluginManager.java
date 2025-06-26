@@ -344,16 +344,24 @@ public class BukkitPluginManager implements PluginManager {
 
         File pluginFile = new File(pluginDir, name + ".jar");
 
-        if (!pluginFile.isFile()) for (File f : pluginDir.listFiles())
-            if (f.getName().endsWith(".jar")) try {
-                PluginDescriptionFile desc = PlugMan.getInstance().getPluginLoader().getPluginDescription(f);
-                if (desc.getName().equalsIgnoreCase(name)) {
-                    pluginFile = f;
-                    break;
+        if (!pluginFile.isFile()) {
+            for (File f : pluginDir.listFiles()) {
+                if (f.getName().endsWith(".jar")) {
+                    try {
+                        PluginDescriptionFile desc = PlugMan.getInstance().getPluginLoader().getPluginDescription(f);
+                        if (desc.getName().equalsIgnoreCase(name)) {
+                            pluginFile = f;
+                            break;
+                        }
+                    } catch (InvalidDescriptionException e) {
+                        PlugMan.getInstance().getLogger().warning("Failed to read descriptor for " + f.getName() + " - skipping");
+                    }
                 }
-            } catch (InvalidDescriptionException e) {
+            }
+            if(!pluginFile.isFile()){
                 return PlugMan.getInstance().getMessageFormatter().format("load.cannot-find");
             }
+        }
 
         try {
             target = Bukkit.getPluginManager().loadPlugin(pluginFile);
