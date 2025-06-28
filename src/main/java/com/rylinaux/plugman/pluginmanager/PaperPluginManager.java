@@ -55,6 +55,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  * Utilities for managing paper plugins.
@@ -456,6 +457,31 @@ public class PaperPluginManager implements PluginManager {
     @Override
     public void setKnownCommands(Map<String, Command> knownCommands) {
         this._bukkitPluginManager.setKnownCommands(knownCommands);
+    }
+
+    @Override
+    public void reload(CommandSender sender, Plugin plugin) {
+        Set<String> dependencies = new HashSet<>();
+        if(sender != null && plugin != null){
+            for(Plugin otherPlugin : Bukkit.getPluginManager().getPlugins()){
+                if(otherPlugin.getName().equals(plugin.getName())){
+                    continue;
+                }
+                if(otherPlugin.getDescription().getDepend().contains(plugin.getName()) ||
+                        otherPlugin.getDescription().getSoftDepend().contains(plugin.getName())){
+                    dependencies.add(otherPlugin.getName());
+                }
+            }
+        }
+        PluginManager.super.reload(sender, plugin);
+        if(sender != null && !dependencies.isEmpty()){
+            sender.sendMessage(PlugMan.getInstance().getMessageFormatter().prefix(
+                    "&cPlugins depending on " + plugin.getName() + " that may require reloading"
+            ));
+            sender.sendMessage(PlugMan.getInstance().getMessageFormatter().prefix(
+                    "&e" + String.join("&7,&e", dependencies)
+            ));
+        }
     }
 
     /**
